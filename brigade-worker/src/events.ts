@@ -186,8 +186,8 @@ export class Project {
    */
   kubernetes: KubernetesConfig;
   /*
-     * secrets is a map of secret names to secret values.
-     */
+   * secrets is a map of secret names to secret values.
+   */
   secrets: { [key: string]: string };
 
   /**
@@ -199,6 +199,8 @@ export class Project {
      * allowHostMounts enables whether or not builds can mount in host volumes.
      */
   allowHostMounts: boolean;
+
+  globalSecrets: { [key: string]: string };
 }
 
 /**

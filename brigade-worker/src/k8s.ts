@@ -8,6 +8,8 @@ import * as kubernetes from "@kubernetes/client-node";
 import * as jobs from "./job";
 import { Logger, ContextLogger } from "./logger";
 import { BrigadeEvent, Project } from "./events";
+import {V1Secret} from "@kubernetes/client-node/api";
+import * as http from "http";
 
 // The internals for running tasks. This must be loaded before any of the
 // objects that use run().
@@ -143,6 +145,7 @@ export class BuildStorage {
  * from the secret.
  */
 export function loadProject(name: string, ns: string): Promise<Project> {
+  let projectSecret : { response: http.ClientResponse, body: V1Secret;  };
   return defaultClient
     .readNamespacedSecret(name, ns)
     .catch(reason => {
@@ -150,7 +153,27 @@ export function loadProject(name: string, ns: string): Promise<Project> {
       return Promise.reject(new Error(`Project not found: ${msg}`));
     })
     .then(result => {
-      return secretToProject(ns, result.body);
+      projectSecret = result;
+      return defaultClient.readNamespacedSecret("brigade-global-secrets", ns)
+    })
+    .catch(reason => {
+      const msg = reason.body ? reason.body.message : reason;
+      logger.log(`brigade-global-secrets not found: ${msg}`);
+      return undefined;
+    })
+    .then(result => {
+
+      let project: Project = secretToProject(ns, projectSecret.body);
+
+      if(result){
+        logger.log("brigade-global-secrets found. Adding it to project.");
+        let secret: V1Secret = result.body;
+        if (secret.data && secret.data.secrets) {
+          project.globalSecrets = JSON.parse(b64dec(secret.data.secrets));
+        }
+      }
+
+      return project;
     });
 }
 
@@ -741,7 +764,8 @@ export function secretToProject(
     },
     secrets: {},
     allowPrivilegedJobs: true,
-    allowHostMounts: false
+    allowHostMounts: false,
+    globalSecrets: {}
   };
   if (secret.data.vcsSidecar) {
     p.kubernetes.vcsSidecar = b64dec(secret.data.vcsSidecar);
