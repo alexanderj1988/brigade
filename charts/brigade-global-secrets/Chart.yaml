@@ -1,0 +1,4 @@
+apiVersion: v1
+description: Create a Brigade project
+name: brigade-global-secret
+version: 0.12.0
